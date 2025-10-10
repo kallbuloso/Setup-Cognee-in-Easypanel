@@ -1,0 +1,16 @@
+# envs e segredos
+.env
+*.env
+*.env.*
+
+# artefatos locais
+*.log
+logs/
+*.tgz
+*.tar.gz
+
+# editor/OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
