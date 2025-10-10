@@ -1,0 +1,102 @@
+name: cognee-prod
+
+networks:
+  cognee_net:
+    driver: bridge
+
+volumes:
+  cognee_system: {}
+  pg_data: {}
+  neo4j_data: {}
+  neo4j_logs: {}
+  neo4j_import: {}
+  neo4j_plugins: {}
+
+services:
+  # Prepara o volume compartilhado do Cognee (cria /databases etc.)
+  init-cognee-fs:
+    image: alpine:3.20
+    command: >
+      sh -lc "
+        mkdir -p /data/databases /data/tmp /data/uploads &&
+        chmod -R 777 /data &&
+        echo 'cognee fs ready'
+      "
+    volumes:
+      - cognee_system:/data
+    networks:
+      - cognee_net
+    restart: "no"
+
+  # Postgres com pgvector (vector store + relacional)
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USERNAME} -d ${DB_NAME} -h localhost || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - cognee_net
+
+  # Neo4j (grafo) com APOC + GDS
+  neo4j:
+    image: neo4j:5.25-community
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+      - NEO4J_PLUGINS=["apoc","graph-data-science"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*,gds.*
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    healthcheck:
+      # usa cypher-shell (vem na imagem)
+      test:
+        [
+          "CMD-SHELL",
+          "cypher-shell -a bolt://localhost:7687 -u neo4j -p ${NEO4J_PASSWORD} 'RETURN 1' | grep -q '1'",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+      start_period: 90s
+    restart: unless-stopped
+    networks:
+      - cognee_net
+
+  # Cognee REST API
+  cognee:
+    image: cognee/cognee:main
+    env_file:
+      - .env
+    volumes:
+      - cognee_system:${SYSTEM_ROOT_DIRECTORY:-/app/.cognee_system}
+    depends_on:
+      init-cognee-fs:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - cognee_net
+    # Dica: deixe o Easypanel fazer o healthcheck HTTP em /health
