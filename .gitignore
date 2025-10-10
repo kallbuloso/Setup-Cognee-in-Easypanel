@@ -1,7 +1,6 @@
 # envs e segredos
 .env
 *.env
-*.env.*
 
 # artefatos locais
 *.log
