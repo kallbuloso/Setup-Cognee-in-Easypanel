@@ -22,6 +22,7 @@ Sem exposição de portas para Postgres/Neo4j (somente rede interna do Compose).
 - [Atualizações](#atualizações)
 - [Monitoramento e Health](#monitoramento-e-health)
 - [Segurança](#segurança)
+- [Porta da API (conflitos comuns no Easypanel)](#porta-da-api-conflitos-comuns-no-easypanel)
 - [Solução de problemas (FAQ)](#solução-de-problemas-faq)
 - [Licença](#licença)
 
@@ -66,7 +67,7 @@ Sem exposição de portas para Postgres/Neo4j (somente rede interna do Compose).
 
 .
 ├─ docker-compose.yml
-├─ .env                 # suas credenciais (NÃO versionar público)
+├─ Makefile               # comandos úteis
 ├─ .env.example         # modelo de variáveis
 └─ .gitignore
 
@@ -211,6 +212,34 @@ Se o Neo4j mudar de tag e reclamar de chaves novas/antigas, remova envs desconhe
 * Use senhas fortes e armazene o `.env` como **secret** no Easypanel.
 * Faça **backups** regulares de `pg_data` e `neo4j_data`.
 
+---
+
+## Porta da API (conflitos comuns no Easypanel)
+
+Por padrão, a API do Cognee usa a porta interna **8000**. Se o Easypanel já tiver outro app usando essa mesma porta como **Destino**, você verá a API subir mas o domínio não responder (ou responder outro app).
+
+### Sintoma
+- Logs mostram `Starting server...` (sem erros) e `/health` responde **dentro** do container;
+- Pelo domínio, 404/502/“app errado”.
+
+### Solução rápida
+1. **Troque a porta da API no `.env`:**
+   - `HTTP_PORT=8001` *(ou outra porta livre)*
+2. **No Easypanel → Domínios**, ajuste **Porta de destino** para **o mesmo valor** do `HTTP_PORT` (ex.: `8001`) e mantenha **Compose Service = cognee**.
+3. **Salvar** e **Deploy/Implantar**.
+4. Teste:
+   - `https://SEU_DOMINIO/health`
+   - `https://SEU_DOMINIO/docs`
+
+> Importante: **não** exponha `ports:` no `docker-compose` do Cognee. Quem publica é o proxy do Easypanel (com a Porta de destino configurada no domínio).
+
+### Como verificar quem está usando a porta
+No servidor:
+```bash
+sudo ss -tulpn | grep :8000
+# ou
+docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep 8000
+```
 ---
 
 ## Solução de problemas (FAQ)
