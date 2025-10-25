@@ -96,8 +96,8 @@ Sem exposição de portas para Postgres/Neo4j (somente rede interna do Compose).
 ## Deploy no Easypanel
 
 1. Crie um **App → Docker Compose**.
-2. Cole o conteúdo do `docker-compose.yml`.
-3. Em **Environment file**, aponte para o `.env`.
+2. Cole o conteúdo do `docker-compose.yml` e salve.
+3. Em **Environment/Ambiente**, cole o conteúdo do `.env.example`, e ajuste conforme necessário.
 4. **Deploy**.
 
 > Postgres/Neo4j **não** expõem portas; a API do Cognee será publicada pelo proxy do Easypanel.
